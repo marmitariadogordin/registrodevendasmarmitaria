@@ -136,6 +136,7 @@
         }
         .grupo-botoes-export .btn-icon { width: 32px; height: 32px; font-size: 1em; }
 
+
         /* --- CARDS E WIDGETS --- */
         .cards-resumo {
             display: grid;
@@ -503,7 +504,7 @@
                         <div id="grafico-categorias-vazio" class="empty-state"><p><i class="fa-solid fa-chart-pie"></i><br>Nenhuma venda registrada.</p></div>
                     </div>
                     <div class="widget" style="grid-column: 1 / -1;">
-                        <h2>Estoque de Produtos <button class="btn-icon" id="btn-abrir-modal-produto" title="Adicionar produto"><i class="fa-solid fa-plus"></i></button></h2>
+                        <h2>Estoque de Produtos <button class="btn-icon" id="btn-adicionar-produto" title="Adicionar produto"><i class="fa-solid fa-plus"></i></button></h2>
                         <div class="tabela-wrapper">
                             <table class="tabela">
                                 <thead><tr><th>Nome</th><th>Preço</th><th>Estoque</th><th>Ações</th></tr></thead>
@@ -724,8 +725,8 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const { data: produtosData } = await supabase.from('produtos').select('*');
             produtos = produtosData || [];
-            const { data: vendasData } = await supabase.from('vendas').select('*, produto:produto_id (nome)').eq('produto.nome', true); // Join simples
-            vendasGeral = vendasData.map(item => ({ ...item, data: new Date(item.data), produto_nome: item.produto.nome })).filter(v => v.data instanceof Date && !isNaN(v.data));
+            const { data: vendasData } = await supabase.from('vendas').select('*, produto:produto_id (nome)');
+            vendasGeral = vendasData.map(item => ({ ...item, data: new Date(item.data), produto_nome: item.produto ? item.produto.nome : 'Produto Desconhecido' })).filter(v => v.data instanceof Date && !isNaN(v.data));
             const { data: caixaData } = await supabase.from('caixa').select('*').order('data_abertura', { ascending: false }).limit(1);
             caixaAtual = caixaData[0] || null;
             aplicarFiltros();
@@ -756,6 +757,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function submeterVenda(dados) {
         const produto = produtos.find(p => p.id === dados.produto_id);
+        if (!produto) {
+            showToast('Produto não encontrado!', 'error');
+            return;
+        }
         if (produto.estoque < dados.quantidade) {
             showToast('Estoque insuficiente!', 'error');
             return;
@@ -1162,6 +1167,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('card-vendas').addEventListener('click', () => exibirDetalhesModal('Vendas'));
     document.getElementById('card-saldo').addEventListener('click', () => exibirDetalhesModal('Saldo'));
     document.getElementById('btn-abrir-modal-produto').addEventListener('click', () => abrirModalProduto());
+    document.getElementById('btn-adicionar-produto').addEventListener('click', () => abrirModalProduto());
     document.getElementById('btn-abrir-modal-venda').addEventListener('click', abrirModalVenda);
     document.getElementById('btn-abrir-caixa').addEventListener('click', () => document.getElementById('modal-abrir-caixa').style.display = 'flex');
     document.getElementById('btn-analise-financeira').addEventListener('click', gerarAnaliseFinanceira);
@@ -1190,5 +1196,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 </body>
-
 </html>
