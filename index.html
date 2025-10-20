@@ -594,7 +594,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- CONFIGURAÇÃO GEMINI API ---
     const GEMINI_API_KEY = 'AIzaSyCxlKJYWyPiQ7y36duJNtLPCx2jYQLpwiU'; // Substitua pela chave válida obtida no Google Cloud Console
     async function chamarGemini(prompt, imageData = null) {
-        const model = imageData ? 'gemini-1.5-pro-latest' : 'gemini-1.5-pro-latest'; // Use modelo correto com '-latest'
+        const model = imageData ? 'gemini-2.5-flash-latest' : 'gemini-2.5-flash-latest'; // Use modelo correto
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
         const body = {
             contents: [{
