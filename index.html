@@ -590,69 +590,62 @@ document.addEventListener('DOMContentLoaded', function() {
     const SUPABASE_URL = 'https://jrbhvzczkzuyigwiomaa.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyYmh2emN6a3p1eWlnd2lvbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NzQzNDUsImV4cCI6MjA3NjU1MDM0NX0.bs4GzZa2iPCkuvOUy4OpKmuT2n6NLPr857Qe1hytJSc';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    
-   // --- CONFIGURAÇÃO GEMINI API ---
-const GEMINI_API_KEY = 'AIzaSyCxlKJYWyPiQ7y36duJNtLPCx2jYQLpwiU'; // Substitua pela chave válida obtida no Google Cloud Console
-async function chamarGemini(prompt, imageData = null) {
-    const model = imageData ? 'gemini-1.5-pro' : 'gemini-1.5-pro'; // Use modelo correto
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-    const body = {
-        contents: [{
-            parts: [{ text: prompt }]
-        }]
-    };
-    if (imageData) {
-        body.contents[0].parts.push({ inlineData: { mimeType: 'image/jpeg', data: imageData } });
-    }
-    try {
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-        const data = await response.json();
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content.parts[0].text) {
-            throw new Error('Resposta da API inválida');
-        }
-        return data.candidates[0].content.parts[0].text;
-    } catch (error) {
-        console.error('Erro na chamada da Gemini API:', error);
-        throw error;
-    }
-}
 
-async function gerarAnaliseFinanceira() {
-    document.getElementById('analise-conteudo').style.display = 'block';
-    document.getElementById('analise-conteudo').innerHTML = '<p>Carregando análise...</p>';
-    try {
-        const prompt = `Analise as vendas: ${JSON.stringify(vendasFiltradas)}. Forneça insights sobre tendências, produtos mais vendidos e previsões.`;
-        const analise = await chamarGemini(prompt);
-        document.getElementById('analise-conteudo').innerHTML = `<p>${analise}</p>`;
-    } catch (error) {
-        showToast(`Erro na análise IA: ${error.message}`, 'error');
-        document.getElementById('analise-conteudo').innerHTML = '<p>Erro ao gerar análise.</p>';
-    }
-}
-
-async function lerDocumentoVenda(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const base64 = e.target.result.split(',')[1];
-                const prompt = 'Extraia dados de venda deste documento: produto, quantidade, valor total, forma de pagamento. Retorne em formato JSON.';
-                const extrato = await chamarGemini(prompt, base64);
-                resolve(JSON.parse(extrato)); // Assumindo que Gemini retorna JSON
-            } catch (error) {
-                reject(error);
-            }
+    // --- CONFIGURAÇÃO GEMINI API ---
+    const GEMINI_API_KEY = 'AIzaSyCxlKJYWyPiQ7y36duJNtLPCx2jYQLpwiU'; // Substitua pela chave válida obtida no Google Cloud Console
+    async function chamarGemini(prompt, imageData = null) {
+        const model = imageData ? 'gemini-1.5-pro' : 'gemini-1.5-pro'; // Use modelo correto
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+        const body = {
+            contents: [{
+                parts: [{ text: prompt }]
+            }]
         };
-        reader.readAsDataURL(file);
-    });
-}
         if (imageData) {
             body.contents[0].parts.push({ inlineData: { mimeType: 'image/jpeg', data: imageData } });
         }
-        const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        const data = await response.json();
-        return data.candidates[0].content.parts[0].text;
+        try {
+            const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+            const data = await response.json();
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content.parts[0].text) {
+                throw new Error('Resposta da API inválida');
+            }
+            return data.candidates[0].content.parts[0].text;
+        } catch (error) {
+            console.error('Erro na chamada da Gemini API:', error);
+            throw error;
+        }
+    }
+
+    async function gerarAnaliseFinanceira() {
+        document.getElementById('analise-conteudo').style.display = 'block';
+        document.getElementById('analise-conteudo').innerHTML = '<p>Carregando análise...</p>';
+        try {
+            const prompt = `Analise as vendas: ${JSON.stringify(vendasFiltradas)}. Forneça insights sobre tendências, produtos mais vendidos e previsões.`;
+            const analise = await chamarGemini(prompt);
+            document.getElementById('analise-conteudo').innerHTML = `<p>${analise}</p>`;
+        } catch (error) {
+            showToast(`Erro na análise IA: ${error.message}`, 'error');
+            document.getElementById('analise-conteudo').innerHTML = '<p>Erro ao gerar análise.</p>';
+        }
+    }
+
+    async function lerDocumentoVenda(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const base64 = e.target.result.split(',')[1];
+                    const prompt = 'Extraia dados de venda deste documento: produto, quantidade, valor total, forma de pagamento. Retorne em formato JSON como {"produto": "", "quantidade": 0, "valor_total": 0, "forma_pagamento": ""}.';
+                    const extrato = await chamarGemini(prompt, base64);
+                    resolve(JSON.parse(extrato)); // Assumindo que Gemini retorna JSON
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
     // --- VARIÁVEIS GLOBAIS ---
@@ -884,36 +877,6 @@ async function lerDocumentoVenda(file) {
         } catch (error) {
             showToast(`Erro: ${error.message}`, 'error');
         }
-    }
-
-    async function gerarAnaliseFinanceira() {
-        document.getElementById('analise-conteudo').style.display = 'block';
-        document.getElementById('analise-conteudo').innerHTML = '<p>Carregando análise...</p>';
-        try {
-            const prompt = `Analise as vendas: ${JSON.stringify(vendasFiltradas)}. Forneça insights sobre tendências, produtos mais vendidos e previsões.`;
-            const analise = await chamarGemini(prompt);
-            document.getElementById('analise-conteudo').innerHTML = `<p>${analise}</p>`;
-        } catch (error) {
-            showToast('Erro na análise IA.', 'error');
-            document.getElementById('analise-conteudo').innerHTML = '<p>Erro ao gerar análise.</p>';
-        }
-    }
-
-    async function lerDocumentoVenda(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const base64 = e.target.result.split(',')[1];
-                    const prompt = 'Extraia dados de venda deste documento: produto, quantidade, valor total, forma de pagamento.';
-                    const extrato = await chamarGemini(prompt, base64);
-                    resolve(JSON.parse(extrato)); // Assumindo que Gemini retorna JSON
-                } catch (error) {
-                    reject(error);
-                }
-            };
-            reader.readAsDataURL(file);
-        });
     }
 
     // --- FUNÇÕES DE RENDERIZAÇÃO E ATUALIZAÇÃO ---
@@ -1244,4 +1207,3 @@ async function lerDocumentoVenda(file) {
 </script>
 </body>
 </html>
-
