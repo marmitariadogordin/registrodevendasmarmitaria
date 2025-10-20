@@ -586,12 +586,12 @@ document.addEventListener('DOMContentLoaded', function() {
     'use strict';
 
     // --- CONFIGURAÇÃO SUPABASE ---
-    const SUPABASE_URL = 'https://qldxyvyrafiiqfgxytab.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFsZHh5dnlyYWZpaXFmZ3h5dGFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU5NTc2MzksImV4cCI6MjA3MTUzMzYzOX0.x6rFKRkfJjgkBLVA8tc5FESxM0KwzrkQRG-8qox0HqM';
+    const SUPABASE_URL = 'https://jrbhvzczkzuyigwiomaa.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyYmh2emN6a3p1eWlnd2lvbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NzQzNDUsImV4cCI6MjA3NjU1MDM0NX0.bs4GzZa2iPCkuvOUy4OpKmuT2n6NLPr857Qe1hytJSc';
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // --- CONFIGURAÇÃO GEMINI API (Substitua pela sua chave API) ---
-    const GEMINI_API_KEY = 'SUA_CHAVE_API_GEMINI_AQUI'; // Obtenha em https://ai.google.dev
+    const GEMINI_API_KEY = 'AIzaSyCxlKJYWyPiQ7y36duJNtLPCx2jYQLpwiU'; // Obtenha em https://ai.google.dev
     async function chamarGemini(prompt, imageData = null) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro${imageData ? '-vision' : ''}:generateContent?key=${GEMINI_API_KEY}`;
         const body = {
@@ -1190,4 +1190,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 </body>
+
 </html>
