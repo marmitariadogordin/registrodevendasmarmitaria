@@ -199,40 +199,59 @@
         .status-aberto { background: #dbeafe; color: #1e40af; }
         .status-fechado { background: #fef3c7; color: #92400e; }
 
-        /* === MODALS PREMIUM === */
+        /* === MODALS PREMIUM - MELHORADO === */
         .modal-overlay {
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center;
             z-index: 1000; padding: 1rem; backdrop-filter: blur(4px);
+            animation: fadeIn 0.3s ease;
         }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .modal-content {
             background: var(--bg-secondary); border-radius: var(--radius-lg);
             max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto;
-            box-shadow: var(--shadow-lg); animation: modalSlideIn 0.3s ease-out;
+            box-shadow: var(--shadow-lg); animation: modalSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: scale(0.7); transform-origin: top;
         }
 
-        @keyframes modalSlideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes modalSlideIn { to { transform: scale(1); } }
 
         .modal-header { 
             display: flex; justify-content: space-between; align-items: center; 
-            padding: 1.5rem; border-bottom: 1px solid var(--border-color); 
+            padding: 1.5rem; border-bottom: 1px solid var(--border-color);
+            background: var(--primary-gradient); color: white;
         }
 
-        .form-group { margin-bottom: 1rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-secondary); }
+        .modal-title { font-size: 1.25rem; font-weight: 600; margin: 0; }
+
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { 
+            display: flex; align-items: center; gap: 0.5rem; 
+            margin-bottom: 0.5rem; font-weight: 500; color: var(--text-secondary); 
+        }
         .form-group input, .form-group select {
             width: 100%; padding: 0.75rem; border: 2px solid var(--border-color);
             border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary);
-            transition: var(--transition);
+            font-size: 1rem; transition: var(--transition);
         }
         .form-group input:focus, .form-group select:focus {
-            outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         .item-row {
-            display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.5rem; margin: 0.5rem 0;
-            align-items: center;
+            display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 1rem; 
+            margin: 1rem 0; padding: 1rem; background: var(--bg-primary); 
+            border-radius: var(--radius-md); align-items: center;
+        }
+
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+        .btn-group-modal {
+            display: flex; gap: 1rem; justify-content: flex-end; 
+            padding: 1.5rem; border-top: 1px solid var(--border-color); 
+            background: var(--bg-primary);
         }
 
         /* === TOAST NOTIFICATIONS === */
@@ -262,7 +281,7 @@
             .dashboard-grid { grid-template-columns: 1fr; }
             .filters { flex-direction: column; align-items: stretch; }
             .header-content { flex-direction: column; gap: 1rem; }
-            .item-row { grid-template-columns: 1fr; }
+            .item-row, .form-row { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -381,7 +400,7 @@
     <div class="modal-overlay" id="modal-detalhes">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modal-detalhes-titulo">Detalhes</h3>
+                <h3 id="modal-detalhes-titulo" class="modal-title">Detalhes</h3>
                 <button class="btn-icon btn-danger" id="btn-fechar-detalhes">&times;</button>
             </div>
             <div id="modal-detalhes-conteudo" class="table-container"></div>
@@ -392,24 +411,26 @@
     <div class="modal-overlay" id="modal-registro-produto">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modal-produto-titulo">Cadastrar Produto</h3>
+                <h3 id="modal-produto-titulo" class="modal-title">Cadastrar Produto</h3>
                 <button class="btn-icon btn-danger" id="btn-fechar-produto">&times;</button>
             </div>
             <form id="form-produto">
                 <input type="hidden" id="prod-id">
                 <div class="form-group">
-                    <label>Nome</label>
+                    <label><i class="fas fa-box"></i> Nome</label>
                     <input type="text" id="prod-nome" required>
                 </div>
-                <div class="form-group">
-                    <label>Preço (R$)</label>
-                    <input type="text" id="prod-preco" placeholder="0,00" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-tag"></i> Preço (R$)</label>
+                        <input type="text" id="prod-preco" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-layer-group"></i> Estoque</label>
+                        <input type="number" id="prod-estoque" min="0" required>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Estoque</label>
-                    <input type="number" id="prod-estoque" min="0" required>
-                </div>
-                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <div class="btn-group-modal">
                     <button type="button" class="btn btn-outline" id="btn-cancelar-produto">Cancelar</button>
                     <button type="submit" class="btn btn-success">Salvar</button>
                 </div>
@@ -417,31 +438,48 @@
         </div>
     </div>
 
-    <!-- Modal Venda -->
+    <!-- MODAL VENDA - TOTALMENTE MELHORADO -->
     <div class="modal-overlay" id="modal-registro-venda">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Registrar Pedido</h3>
+                <h3 class="modal-title"><i class="fas fa-receipt"></i> Registrar Pedido</h3>
                 <button class="btn-icon btn-danger" id="btn-fechar-venda">&times;</button>
             </div>
             <form id="form-venda">
-                <div class="form-group">
-                    <label>Pagamento</label>
-                    <select id="venda-pagamento" required>
-                        <option value="Dinheiro">Dinheiro</option>
-                        <option value="Cartao">Cartão</option>
-                        <option value="Pix">Pix</option>
-                        <option value="Outro">Outro</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><i class="fas fa-credit-card"></i> Forma de Pagamento</label>
+                        <select id="venda-pagamento" required>
+                            <option value="">Selecione...</option>
+                            <option value="Dinheiro">💵 Dinheiro</option>
+                            <option value="Cartao">💳 Cartão</option>
+                            <option value="Pix">📱 Pix</option>
+                            <option value="Outro">💰 Outro</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-calendar"></i> Data (Automática)</label>
+                        <input type="text" id="venda-data" readonly>
+                    </div>
                 </div>
-                <div id="itens-list"></div>
-                <button type="button" class="btn btn-success" id="btn-add-item">+ Item</button>
-                <div style="margin: 1rem 0; font-size: 1.25rem; font-weight: 600;">
+                
+                <div class="form-group">
+                    <label><i class="fas fa-list"></i> Itens do Pedido</label>
+                    <div id="itens-list"></div>
+                    <button type="button" class="btn btn-primary" id="btn-add-item" style="margin-top: 1rem;">
+                        <i class="fas fa-plus"></i> Adicionar Item
+                    </button>
+                </div>
+                
+                <div style="margin: 1.5rem 0; padding: 1rem; background: var(--success-gradient); color: white; border-radius: var(--radius-md); font-size: 1.25rem; font-weight: 600; text-align: center;">
                     Total: <span id="venda-total">R$ 0,00</span>
                 </div>
-                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                
+                <div class="btn-group-modal">
                     <button type="button" class="btn btn-outline" id="btn-cancelar-venda">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Salvar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> Lançar Pedido
+                    </button>
                 </div>
             </form>
         </div>
@@ -451,17 +489,17 @@
     <div class="modal-overlay" id="modal-abrir-caixa">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Abrir Caixa</h3>
+                <h3 class="modal-title"><i class="fas fa-cash-register"></i> Abrir Caixa</h3>
                 <button class="btn-icon btn-danger" id="btn-fechar-abrir-caixa">&times;</button>
             </div>
             <form id="form-abrir-caixa">
                 <div class="form-group">
-                    <label>Valor Inicial (R$)</label>
+                    <label><i class="fas fa-money-bill-wave"></i> Valor Inicial (R$)</label>
                     <input type="text" id="caixa-valor-inicial" placeholder="0,00" required>
                 </div>
-                <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <div class="btn-group-modal">
                     <button type="button" class="btn btn-outline" id="btn-cancelar-abrir-caixa">Cancelar</button>
-                    <button type="submit" class="btn btn-success">Abrir</button>
+                    <button type="submit" class="btn btn-success">Abrir Caixa</button>
                 </div>
             </form>
         </div>
@@ -471,7 +509,7 @@
     <div class="modal-overlay" id="modal-caixa-hist">
         <div class="modal-content" style="max-width: 800px;">
             <div class="modal-header">
-                <h3>Histórico de Caixas</h3>
+                <h3 class="modal-title">Histórico de Caixas</h3>
                 <button class="btn-icon btn-danger" id="btn-fechar-caixa-hist">&times;</button>
             </div>
             <div style="padding: 0 1.5rem 1.5rem;">
@@ -520,12 +558,12 @@
         document.addEventListener('DOMContentLoaded', function() {
             'use strict';
 
-            // === SUPABASE CONFIG (INTACTO) ===
+            // === SUPABASE CONFIG ===
             const SUPABASE_URL = 'https://jrbhvzczkzuyigwiomaa.supabase.co';
             const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyYmh2emN6a3p1eWlnd2lvbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NzQzNDUsImV4cCI6MjA3NjU1MDM0NX0.bs4GzZa2iPCkuvOUy4OpKmuT2n6NLPr857Qe1hytJSc';
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            // === VARIÁVEIS GLOBAIS (ORIGINAIS) ===
+            // === VARIÁVEIS GLOBAIS ===
             let produtos = [];
             let pedidosGeral = [];
             let itensGeral = [];
@@ -537,9 +575,9 @@
             let graficoLinhas = null;
             let graficoCategorias = null;
 
-            // === FUNÇÕES AUXILIARES (ORIGINAIS) ===
+            // === FUNÇÕES AUXILIARES ===
             const formatarMoeda = (valor) => (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-            const formatarData = (data) => data instanceof Date && !isNaN(data) ? data.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data inválida';
+            const formatarData = (data) => data instanceof Date && !isNaN(data) ? data.toLocaleDateString('pt-BR') : 'Data inválida';
 
             function formatarInputMoeda(inputEl) {
                 let valor = inputEl.value.replace(/\D/g, '');
@@ -563,7 +601,7 @@
                 localStorage.setItem('temaDashboard', tema);
             }
 
-            // === CARREGAR DADOS (LÓGICA ORIGINAL) ===
+            // === CARREGAR DADOS ===
             async function carregarDadosIniciais() {
                 const loadingDiv = document.getElementById('loading');
                 const dashboardContentDiv = document.getElementById('dashboard-content');
@@ -597,7 +635,7 @@
                 }
             }
 
-            // === OPERAÇÕES CRUD (LÓGICA ORIGINAL INTACTA) ===
+            // === OPERAÇÕES CRUD - FUZO HORÁRIO CORRIGIDO ===
             async function submeterProduto(dados, id = null) {
                 try {
                     const { error } = id
@@ -627,8 +665,11 @@
                     return;
                 }
                 try {
+                    // ✅ CORRIGIDO: DATA BRT HOJE
+                    const dataHoje = new Date().toLocaleDateString('pt-BR');
+                    
                     const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos').insert([{
-                        data: new Date().toISOString().split('T')[0], 
+                        data: dataHoje, 
                         forma_pagamento: formaPagamento, 
                         valor_total: valorTotal 
                     }]).select();
@@ -652,7 +693,7 @@
                         }).eq('id', item.produto_id);
                     }
                     
-                    showToast('Pedido registrado!');
+                    showToast('✅ Pedido lançado com sucesso!');
                     document.getElementById('modal-registro-venda').style.display = 'none';
                     carregarDadosIniciais();
                 } catch (error) {
@@ -666,14 +707,17 @@
                     return;
                 }
                 try {
+                    // ✅ CORRIGIDO: DATA BRT HOJE
+                    const dataHoje = new Date().toLocaleDateString('pt-BR');
+                    
                     const { data, error } = await supabase.from('caixa').insert([{
-                        data_abertura: new Date().toISOString(), 
+                        data_abertura: dataHoje, 
                         valor_inicial: valorInicial, 
                         valor_final: valorInicial 
                     }]).select();
                     if (error) throw error;
                     caixaAtual = data[0];
-                    showToast('Caixa aberto!');
+                    showToast('✅ Caixa aberto com sucesso!');
                     document.getElementById('modal-abrir-caixa').style.display = 'none';
                     carregarDadosIniciais();
                 } catch (error) {
@@ -734,7 +778,7 @@
                 }
             }
 
-            // === RENDERIZAÇÃO (LÓGICA ORIGINAL) ===
+            // === RENDERIZAÇÃO ===
             function aplicarFiltros(filtroId = 'filter-group', isCaixa = false) {
                 const periodoFiltroBtn = document.querySelector('.filter-btn.active');
                 const dataInicioInput = document.getElementById('data-inicio');
@@ -903,7 +947,7 @@
                 document.getElementById('total-final-caixa').textContent = formatarMoeda(totalFinal);
             }
 
-            // === EXPORTAÇÕES (LÓGICA ORIGINAL) ===
+            // === EXPORTAÇÕES ===
             function exportarParaPDF() {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
@@ -918,7 +962,7 @@
                     body: tableData, 
                     startY: 25 
                 });
-                doc.save(`relatorio-pedidos-${new Date().toISOString().split('T')[0]}.pdf`);
+                doc.save(`relatorio-pedidos-${new Date().toLocaleDateString('pt-BR')}.pdf`);
                 showToast('PDF exportado!', 'success');
             }
 
@@ -932,7 +976,7 @@
                 });
                 const link = document.createElement("a");
                 link.setAttribute("href", encodeURI(csvContent));
-                link.setAttribute("download", `relatorio-pedidos-${new Date().toISOString().split('T')[0]}.csv`);
+                link.setAttribute("download", `relatorio-pedidos-${new Date().toLocaleDateString('pt-BR')}.csv`);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -966,11 +1010,11 @@
                     y += 10;
                 }
                 doc.text(`Valor Final: ${formatarMoeda(caixa.valor_final || (caixa.valor_inicial + totalVendas))}`, 14, y);
-                doc.save(`conferencia-caixa-${caixa.id}-${new Date().toISOString().split('T')[0]}.pdf`);
+                doc.save(`conferencia-caixa-${caixa.id}-${new Date().toLocaleDateString('pt-BR')}.pdf`);
                 showToast('PDF Caixa exportado!', 'success');
             }
 
-            // === MODAIS (LÓGICA ORIGINAL) ===
+            // === MODAIS - MELHORADO ===
             function exibirDetalhesModal(tipo) {
                 const modal = document.getElementById('modal-detalhes');
                 const pedidosParaExibir = tipo === 'Saldo' ? pedidosFiltrados : pedidosFiltrados;
@@ -1035,6 +1079,8 @@
                 itensList.innerHTML = '';
                 document.getElementById('venda-total').textContent = formatarMoeda(0);
                 document.getElementById('form-venda').reset();
+                // ✅ DATA AUTOMÁTICA BRT
+                document.getElementById('venda-data').value = new Date().toLocaleDateString('pt-BR');
                 addItemRow();
                 modal.style.display = 'flex';
             }
@@ -1044,10 +1090,12 @@
                 const row = document.createElement('div');
                 row.className = 'item-row';
                 row.innerHTML = `
-                    <select class="venda-item-produto"></select>
-                    <input type="number" class="venda-item-qtd" min="1" value="1">
-                    <span class="item-subtotal">R$ 0,00</span>
-                    <button type="button" class="btn-icon btn-danger btn-remove-item">&times;</button>
+                    <select class="venda-item-produto" required>
+                        <option value="">Selecione produto...</option>
+                    </select>
+                    <input type="number" class="venda-item-qtd" min="1" value="1" required>
+                    <input type="text" class="item-subtotal" readonly style="text-align: right;">
+                    <button type="button" class="btn-icon btn-danger btn-remove-item" title="Remover">&times;</button>
                 `;
                 itensList.appendChild(row);
 
@@ -1055,7 +1103,7 @@
                 produtos.forEach(prod => {
                     const option = document.createElement('option');
                     option.value = prod.id;
-                    option.textContent = `${prod.nome} - R$ ${prod.preco.toFixed(2)} (Est: ${prod.estoque})`;
+                    option.textContent = `${prod.nome} - R$ ${prod.preco.toFixed(2)}`;
                     selectProduto.appendChild(option);
                 });
 
@@ -1064,7 +1112,7 @@
                     const qtd = parseInt(row.querySelector('.venda-item-qtd').value) || 0;
                     const prod = produtos.find(p => p.id === prodId);
                     const subtotal = prod ? prod.preco * qtd : 0;
-                    row.querySelector('.item-subtotal').textContent = formatarMoeda(subtotal);
+                    row.querySelector('.item-subtotal').value = formatarMoeda(subtotal);
                     updateVendaTotal();
                 };
 
@@ -1080,14 +1128,14 @@
             function updateVendaTotal() {
                 let total = 0;
                 document.querySelectorAll('.item-row').forEach(row => {
-                    const subtotalText = row.querySelector('.item-subtotal').textContent;
+                    const subtotalText = row.querySelector('.item-subtotal').value;
                     const subtotal = parseFloat(subtotalText.replace('R$', '').replace(/\./g, '').replace(',', '.')) || 0;
                     total += subtotal;
                 });
                 document.getElementById('venda-total').textContent = formatarMoeda(total);
             }
 
-            // === EVENT LISTENERS (LÓGICA ORIGINAL) ===
+            // === EVENT LISTENERS ===
             // Theme Toggle
             document.getElementById('btn-theme-toggle').addEventListener('click', () => {
                 const temaAtual = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -1132,7 +1180,7 @@
                 rows.forEach(row => {
                     const produtoId = parseInt(row.querySelector('.venda-item-produto').value);
                     const quantidade = parseInt(row.querySelector('.venda-item-qtd').value) || 0;
-                    if (quantidade > 0) {
+                    if (quantidade > 0 && produtoId) {
                         const prod = produtos.find(p => p.id === produtoId);
                         itens.push({ produto_id: produtoId, quantidade, preco: prod.preco });
                     }
