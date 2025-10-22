@@ -14,7 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script> <!-- Para API Gemini, assumindo uso de Google AI SDK -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         /* --- ESTILOS GERAIS E VARIÁVEIS --- */
         :root {
@@ -342,6 +342,21 @@
             margin-top: 10px;
         }
         
+        /* Item Row in Venda Modal */
+        .item-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .item-row select, .item-row input {
+            flex: 1;
+        }
+        .item-subtotal {
+            min-width: 80px;
+            text-align: right;
+        }
+        
         /* Notificações (Toast) */
         #toast-container {
             position: fixed;
@@ -441,6 +456,11 @@
                 padding-top: 10px;
             }
             .tabela td.acoes::before { display: none; }
+            
+            .item-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
         }
     </style>
 </head>
@@ -463,9 +483,10 @@
                 <button class="btn-icon" id="btn-toggle-theme" title="Mudar tema"><i class="fa-solid fa-moon"></i></button>
                 <div class="grupo-botoes-registro">
                     <button id="btn-abrir-modal-produto" class="btn btn-azul"><i class="fa-solid fa-box"></i> Produto</button>
-                    <button id="btn-abrir-modal-venda" class="btn btn-verde"><i class="fa-solid fa-shopping-cart"></i> Venda</button>
+                    <button id="btn-abrir-modal-venda" class="btn btn-verde"><i class="fa-solid fa-shopping-cart"></i> Pedido</button>
                     <button id="btn-abrir-caixa" class="btn btn-azul"><i class="fa-solid fa-cash-register"></i> Abrir Caixa</button>
                     <button id="btn-encerrar-caixa" class="btn btn-vermelho"><i class="fa-solid fa-times"></i> Encerrar Caixa</button>
+                    <button id="btn-hist-caixa" class="btn btn-azul"><i class="fa-solid fa-history"></i> Histórico Caixa</button>
                 </div>
             </div>
         </header>
@@ -550,14 +571,16 @@
 
     <div id="modal-registro-venda" class="modal-container">
         <div class="modal-content">
-            <div class="modal-header"><h2 id="modal-venda-titulo">Registrar Venda</h2><button id="btn-fechar-venda" class="btn-icon" aria-label="Fechar">&times;</button></div>
+            <div class="modal-header"><h2 id="modal-venda-titulo">Registrar Pedido</h2><button id="btn-fechar-venda" class="btn-icon" aria-label="Fechar">&times;</button></div>
             <div class="modal-body">
                 <form id="form-venda" novalidate>
                     <input type="hidden" id="venda-id">
-                    <div class="form-grupo"><label for="venda-produto">Produto</label><select id="venda-produto" required></select></div>
-                    <div class="form-grupo"><label for="venda-quantidade">Quantidade</label><input type="number" id="venda-quantidade" min="1" required></div>
                     <div class="form-grupo"><label for="venda-pagamento">Forma de Pagamento</label><select id="venda-pagamento" required><option value="Dinheiro">Dinheiro</option><option value="Cartao">Cartão</option><option value="Pix">Pix</option><option value="Outro">Outro</option></select></div>
                     <div class="form-grupo"><label for="venda-documento">Upload Documento (opcional)</label><input type="file" id="venda-documento" accept="image/*,application/pdf"></div>
+                    <h3>Itens do Pedido</h3>
+                    <div id="itens-list"></div>
+                    <button type="button" id="btn-add-item" class="btn btn-azul"><i class="fa-solid fa-plus"></i> Adicionar Item</button>
+                    <p>Total: <span id="venda-total">R$ 0,00</span></p>
                     <div class="form-botoes">
                         <button type="button" class="btn" id="btn-cancelar-venda" style="background-color: #ccc;">Cancelar</button>
                         <button type="submit" class="btn btn-verde" id="btn-salvar-venda"><span class="btn-text">Salvar</span><i class="fa-solid fa-spinner fa-spin" style="display: none;"></i></button>
@@ -582,6 +605,34 @@
         </div>
     </div>
 
+    <div id="modal-caixa-hist" class="modal-container">
+        <div class="modal-content">
+            <div class="modal-header"><h2>Histórico de Caixas</h2><button id="btn-fechar-caixa-hist" class="btn-icon" aria-label="Fechar">&times;</button></div>
+            <div class="modal-body">
+                <section class="secao-filtros">
+                    <div class="grupo-filtro" id="filtro-periodo-caixa"><button class="btn-filtro" data-periodo="Diario">Hoje</button><button class="btn-filtro" data-periodo="Semanal">Semana</button><button class="btn-filtro active" data-periodo="Mensal">Mês</button><button class="btn-filtro" data-periodo="Anual">Ano</button></div>
+                    <div class="grupo-filtro" id="filtro-personalizado-caixa">
+                        <label for="data-inicio-caixa">De:</label><input type="date" id="data-inicio-caixa" aria-label="Data de início">
+                        <label for="data-fim-caixa">Até:</label><input type="date" id="data-fim-caixa" aria-label="Data de fim">
+                        <button id="btn-aplicar-filtro-data-caixa" class="btn-filtro">Aplicar</button>
+                    </div>
+                </section>
+                <section class="cards-resumo">
+                    <div class="card"><div class="card-header"><span>Total Inicial</span><i class="fa-solid fa-money-bill-wave"></i></div><p class="valor" id="total-inicial-caixa">R$ 0,00</p></div>
+                    <div class="card"><div class="card-header"><span>Total Final</span><i class="fa-solid fa-money-check"></i></div><p class="valor" id="total-final-caixa">R$ 0,00</p></div>
+                </section>
+                <div class="tabela-wrapper">
+                    <table class="tabela">
+                        <thead><tr><th>Data Abertura</th><th>Data Encerramento</th><th>Valor Inicial</th><th>Valor Final</th><th>Ações</th></tr></thead>
+                        <tbody id="corpo-tabela-caixa"></tbody>
+                    </table>
+                </div>
+                <button id="btn-analise-caixa" class="btn btn-azul">Gerar Análise IA</button>
+                <div id="analise-caixa-conteudo" class="loading-container" style="display:none;"><p>Carregando análise...</p></div>
+            </div>
+        </div>
+    </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     'use strict';
@@ -592,9 +643,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // --- CONFIGURAÇÃO GEMINI API ---
-    const GEMINI_API_KEY = 'AIzaSyCxlKJYWyPiQ7y36duJNtLPCx2jYQLpwiU'; // Substitua pela chave válida obtida no Google Cloud Console
+    const GEMINI_API_KEY = 'AIzaSyCxlKJYWyPiQ7y36duJNtLPCx2jYQLpwiU';
     async function chamarGemini(prompt, imageData = null) {
-        const model = imageData ? 'gemini-2.5-flash-latest' : 'gemini-2.5-flash-latest'; // Use modelo correto
+        const model = imageData ? 'gemini-1.5-flash' : 'gemini-1.5-flash';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
         const body = {
             contents: [{
@@ -622,12 +673,25 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('analise-conteudo').style.display = 'block';
         document.getElementById('analise-conteudo').innerHTML = '<p>Carregando análise...</p>';
         try {
-            const prompt = `Analise as vendas: ${JSON.stringify(vendasFiltradas)}. Forneça insights sobre tendências, produtos mais vendidos e previsões.`;
+            const prompt = `Analise os pedidos: ${JSON.stringify(pedidosFiltrados)}. Itens: ${JSON.stringify(itensFiltrados)}. Forneça insights sobre tendências, produtos mais vendidos e previsões.`;
             const analise = await chamarGemini(prompt);
             document.getElementById('analise-conteudo').innerHTML = `<p>${analise}</p>`;
         } catch (error) {
             showToast(`Erro na análise IA: ${error.message}`, 'error');
             document.getElementById('analise-conteudo').innerHTML = '<p>Erro ao gerar análise.</p>';
+        }
+    }
+
+    async function gerarAnaliseCaixa() {
+        document.getElementById('analise-caixa-conteudo').style.display = 'block';
+        document.getElementById('analise-caixa-conteudo').innerHTML = '<p>Carregando análise...</p>';
+        try {
+            const prompt = `Analise os fechamentos de caixa diários, semanais e mensais: ${JSON.stringify(caixasFiltrados)}. Forneça insights sobre tendências, totais e previsões.`;
+            const analise = await chamarGemini(prompt);
+            document.getElementById('analise-caixa-conteudo').innerHTML = `<p>${analise}</p>`;
+        } catch (error) {
+            showToast(`Erro na análise IA: ${error.message}`, 'error');
+            document.getElementById('analise-caixa-conteudo').innerHTML = '<p>Erro ao gerar análise.</p>';
         }
     }
 
@@ -637,9 +701,9 @@ document.addEventListener('DOMContentLoaded', function() {
             reader.onload = async (e) => {
                 try {
                     const base64 = e.target.result.split(',')[1];
-                    const prompt = 'Extraia dados de venda deste documento: produto, quantidade, valor total, forma de pagamento. Retorne em formato JSON como {"produto": "", "quantidade": 0, "valor_total": 0, "forma_pagamento": ""}.';
+                    const prompt = 'Extraia dados de pedido deste documento: forma de pagamento, itens como array de {produto: string, quantidade: number, valor: number}, valor_total. Retorne em formato JSON como {"forma_pagamento": "", "itens": [{produto: "", quantidade: 0, valor: 0}], "valor_total": 0}.';
                     const extrato = await chamarGemini(prompt, base64);
-                    resolve(JSON.parse(extrato)); // Assumindo que Gemini retorna JSON
+                    resolve(JSON.parse(extrato));
                 } catch (error) {
                     reject(error);
                 }
@@ -650,8 +714,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- VARIÁVEIS GLOBAIS ---
     let produtos = [];
-    let vendasGeral = [];
-    let vendasFiltradas = [];
+    let pedidosGeral = [];
+    let itensGeral = [];
+    let pedidosFiltrados = [];
+    let itensFiltrados = [];
+    let caixasGeral = [];
+    let caixasFiltrados = [];
     let caixaAtual = null;
     let graficoLinhas = null;
     let graficoCategorias = null;
@@ -682,10 +750,10 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => toast.remove(), 4000);
     }
 
-    function obterDescricaoFiltro() {
-        const periodoBtn = document.querySelector('#filtro-periodo .active');
-        const dataInicioInput = document.getElementById('data-inicio');
-        const dataFimInput = document.getElementById('data-fim');
+    function obterDescricaoFiltro(filtroId = 'filtro-periodo') {
+        const periodoBtn = document.querySelector(`#${filtroId} .active`);
+        const dataInicioInput = document.getElementById(filtroId === 'filtro-periodo' ? 'data-inicio' : 'data-inicio-caixa');
+        const dataFimInput = document.getElementById(filtroId === 'filtro-periodo' ? 'data-fim' : 'data-fim-caixa');
         if (periodoBtn) return `(${periodoBtn.textContent})`;
         if (dataInicioInput.value && dataFimInput.value) {
             const inicio = new Date(`${dataInicioInput.value}T00:00:00`).toLocaleDateString('pt-BR');
@@ -697,64 +765,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- FUNÇÕES DE EXPORTAÇÃO ---
     function exportarParaPDF() {
-        const dadosParaExportar = vendasFiltradas;
+        const dadosParaExportar = pedidosFiltrados;
         if (dadosParaExportar.length === 0) {
-            showToast('Nenhuma venda para exportar.', 'error');
+            showToast('Nenhum pedido para exportar.', 'error');
             return;
         }
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text(`Relatório de Vendas ${obterDescricaoFiltro()}`, 14, 15);
-        const tableData = dadosParaExportar.map(v => [formatarData(v.data), v.produto_nome, v.quantidade, v.forma_pagamento, formatarMoeda(v.valor_total)]);
-        doc.autoTable({ head: [['Data', 'Produto', 'Quantidade', 'Pagamento', 'Valor']], body: tableData, startY: 25 });
-        doc.save(`relatorio-vendas-${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.text(`Relatório de Pedidos ${obterDescricaoFiltro()}`, 14, 15);
+        const tableData = dadosParaExportar.map(p => [formatarData(p.data), p.forma_pagamento, formatarMoeda(p.valor_total)]);
+        doc.autoTable({ head: [['Data', 'Pagamento', 'Valor']], body: tableData, startY: 25 });
+        doc.save(`relatorio-pedidos-${new Date().toISOString().split('T')[0]}.pdf`);
     }
 
     function exportarParaCSV() {
-        const dadosParaExportar = vendasFiltradas;
+        const dadosParaExportar = pedidosFiltrados;
         if (dadosParaExportar.length === 0) {
-            showToast('Nenhuma venda para exportar.', 'error');
+            showToast('Nenhum pedido para exportar.', 'error');
             return;
         }
-        const headers = ['Data', 'Produto', 'Quantidade', 'Pagamento', 'Valor'];
+        const headers = ['Data', 'Pagamento', 'Valor'];
         let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
-        dadosParaExportar.forEach(v => {
-            const valorNumerico = (v.valor_total || 0).toFixed(2).replace('.', ',');
-            const row = [formatarData(v.data), `"${v.produto_nome}"`, v.quantidade, v.forma_pagamento, `"${valorNumerico}"`];
+        dadosParaExportar.forEach(p => {
+            const valorNumerico = (p.valor_total || 0).toFixed(2).replace('.', ',');
+            const row = [formatarData(p.data), `"${p.forma_pagamento}"`, `"${valorNumerico}"`];
             csvContent += row.join(",") + "\n";
         });
         const link = document.createElement("a");
         link.setAttribute("href", encodeURI(csvContent));
-        link.setAttribute("download", `relatorio-vendas-${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute("download", `relatorio-pedidos-${new Date().toISOString().split('T')[0]}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
     }
 
-    function exportarConferenciaCaixaPDF() {
-        if (!caixaAtual || !caixaAtual.data_encerramento) {
-            showToast('Caixa não encerrado.', 'error');
+    function calcTotalVendasForCaixa(caixa) {
+        const vendasDoPeriodo = pedidosGeral.filter(p => dateFns.isAfter(p.data, caixa.data_abertura) && (!caixa.data_encerramento || dateFns.isBefore(p.data, caixa.data_encerramento)));
+        return vendasDoPeriodo.reduce((acc, p) => acc + p.valor_total, 0);
+    }
+
+    function exportarConferenciaCaixaPDF(caixa = caixaAtual) {
+        if (!caixa) {
+            showToast('Caixa não selecionado.', 'error');
             return;
         }
-        const vendasDoDia = vendasGeral.filter(v => dateFns.isSameDay(v.data, new Date(caixaAtual.data_abertura)));
-        const totalVendas = vendasDoDia.reduce((acc, v) => acc + v.valor_total, 0);
-        const totalPorPagamento = vendasDoDia.reduce((acc, v) => {
-            acc[v.forma_pagamento] = (acc[v.forma_pagamento] || 0) + v.valor_total;
+        const totalVendas = calcTotalVendasForCaixa(caixa);
+        const totalPorPagamento = pedidosGeral.filter(p => dateFns.isAfter(p.data, caixa.data_abertura) && (!caixa.data_encerramento || dateFns.isBefore(p.data, caixa.data_encerramento))).reduce((acc, p) => {
+            acc[p.forma_pagamento] = (acc[p.forma_pagamento] || 0) + p.valor_total;
             return acc;
         }, {});
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.text('Conferência de Caixa', 14, 15);
-        doc.text(`Data: ${formatarData(new Date(caixaAtual.data_abertura))}`, 14, 25);
-        doc.text(`Valor Inicial: ${formatarMoeda(caixaAtual.valor_inicial)}`, 14, 35);
-        doc.text(`Total Vendas: ${formatarMoeda(totalVendas)}`, 14, 45);
-        let y = 55;
+        doc.text(`Data Abertura: ${formatarData(caixa.data_abertura)}`, 14, 25);
+        doc.text(`Data Encerramento: ${caixa.data_encerramento ? formatarData(caixa.data_encerramento) : 'Aberto'}`, 14, 35);
+        doc.text(`Valor Inicial: ${formatarMoeda(caixa.valor_inicial)}`, 14, 45);
+        doc.text(`Total Vendas: ${formatarMoeda(totalVendas)}`, 14, 55);
+        let y = 65;
         for (const [pag, valor] of Object.entries(totalPorPagamento)) {
             doc.text(`${pag}: ${formatarMoeda(valor)}`, 14, y);
             y += 10;
         }
-        doc.text(`Valor Final: ${formatarMoeda(caixaAtual.valor_inicial + totalVendas)}`, 14, y);
-        doc.save(`conferencia-caixa-${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.text(`Valor Final: ${formatarMoeda(caixa.valor_final || (caixa.valor_inicial + totalVendas))}`, 14, y);
+        doc.save(`conferencia-caixa-${caixa.id}-${new Date().toISOString().split('T')[0]}.pdf`);
     }
 
     // --- FUNÇÕES DE DADOS (SUPABASE) ---
@@ -765,10 +838,13 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const { data: produtosData } = await supabase.from('produtos').select('*');
             produtos = produtosData || [];
-            const { data: vendasData } = await supabase.from('vendas').select('*, produto:produto_id (nome)');
-            vendasGeral = vendasData.map(item => ({ ...item, data: new Date(item.data), produto_nome: item.produto ? item.produto.nome : 'Produto Desconhecido' })).filter(v => v.data instanceof Date && !isNaN(v.data));
-            const { data: caixaData } = await supabase.from('caixa').select('*').order('data_abertura', { ascending: false }).limit(1);
-            caixaAtual = caixaData[0] || null;
+            const { data: pedidosData } = await supabase.from('pedidos').select('*');
+            pedidosGeral = pedidosData.map(item => ({ ...item, data: new Date(item.data) })).filter(p => p.data instanceof Date && !isNaN(p.data));
+            const { data: itensData } = await supabase.from('itens_pedido').select('*, produto:produto_id (nome)');
+            itensGeral = itensData.map(item => ({ ...item, produto_nome: item.produto ? item.produto.nome : 'Produto Desconhecido' }));
+            const { data: caixaData } = await supabase.from('caixa').select('*').order('data_abertura', { ascending: false });
+            caixasGeral = caixaData.map(c => ({ ...c, data_abertura: new Date(c.data_abertura), data_encerramento: c.data_encerramento ? new Date(c.data_encerramento) : null }));
+            caixaAtual = caixasGeral.find(c => !c.data_encerramento) || null;
             aplicarFiltros();
             renderizarEstoque();
             loadingDiv.style.display = 'none';
@@ -795,21 +871,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function submeterVenda(dados) {
-        const produto = produtos.find(p => p.id === dados.produto_id);
-        if (!produto) {
-            showToast('Produto não encontrado!', 'error');
+    async function submeterPedido(formaPagamento, itens) {
+        if (itens.length === 0) {
+            showToast('Adicione pelo menos um item!', 'error');
             return;
         }
-        if (produto.estoque < dados.quantidade) {
-            showToast('Estoque insuficiente!', 'error');
+        const valorTotal = itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
+        const estoqueInsuficiente = itens.some(item => {
+            const prod = produtos.find(p => p.id === item.produto_id);
+            return prod.estoque < item.quantidade;
+        });
+        if (estoqueInsuficiente) {
+            showToast('Estoque insuficiente para algum item!', 'error');
             return;
         }
         try {
-            const { error } = await supabase.from('vendas').insert([dados]);
-            if (error) throw error;
-            await supabase.from('produtos').update({ estoque: produto.estoque - dados.quantidade }).eq('id', dados.produto_id);
-            showToast('Venda registrada!');
+            const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos').insert([{ data: new Date().toISOString().split('T')[0], forma_pagamento: formaPagamento, valor_total: valorTotal }]).select();
+            if (pedidoError) throw pedidoError;
+            const pedidoId = pedidoData[0].id;
+            const itensToInsert = itens.map(item => ({ pedido_id: pedidoId, produto_id: item.produto_id, quantidade: item.quantidade, preco_unitario: item.preco }));
+            const { error: itensError } = await supabase.from('itens_pedido').insert(itensToInsert);
+            if (itensError) throw itensError;
+            for (const item of itens) {
+                const prod = produtos.find(p => p.id === item.produto_id);
+                await supabase.from('produtos').update({ estoque: prod.estoque - item.quantidade }).eq('id', item.produto_id);
+            }
+            showToast('Pedido registrado!');
             document.getElementById('modal-registro-venda').style.display = 'none';
             carregarDadosIniciais();
         } catch (error) {
@@ -823,7 +910,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         try {
-            const { data, error } = await supabase.from('caixa').insert([{ data_abertura: new Date().toISOString(), valor_inicial: valorInicial }]).select();
+            const { data, error } = await supabase.from('caixa').insert([{ data_abertura: new Date().toISOString(), valor_inicial: valorInicial, valor_final: valorInicial }]).select();
             if (error) throw error;
             caixaAtual = data[0];
             showToast('Caixa aberto!');
@@ -839,8 +926,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Nenhum caixa aberto!', 'error');
             return;
         }
-        const vendasDoDia = vendasGeral.filter(v => dateFns.isSameDay(v.data, new Date(caixaAtual.data_abertura)));
-        const totalVendas = vendasDoDia.reduce((acc, v) => acc + v.valor_total, 0);
+        const totalVendas = calcTotalVendasForCaixa(caixaAtual);
         try {
             const { error } = await supabase.from('caixa').update({ data_encerramento: new Date().toISOString(), valor_final: caixaAtual.valor_inicial + totalVendas }).eq('id', caixaAtual.id);
             if (error) throw error;
@@ -851,13 +937,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    async function excluirVenda(id) {
+    async function excluirPedido(id) {
         try {
-            const venda = vendasGeral.find(v => v.id === id);
-            await supabase.from('produtos').update({ estoque: produtos.find(p => p.id === venda.produto_id).estoque + venda.quantidade }).eq('id', venda.produto_id);
-            const { error } = await supabase.from('vendas').delete().eq('id', id);
+            const itens = itensGeral.filter(i => i.pedido_id === id);
+            for (const item of itens) {
+                const prod = produtos.find(p => p.id === item.produto_id);
+                await supabase.from('produtos').update({ estoque: prod.estoque + item.quantidade }).eq('id', item.produto_id);
+            }
+            await supabase.from('itens_pedido').delete().eq('pedido_id', id);
+            const { error } = await supabase.from('pedidos').delete().eq('id', id);
             if (error) throw error;
-            showToast('Venda excluída!');
+            showToast('Pedido excluído!');
             carregarDadosIniciais();
         } catch (error) {
             showToast(`Erro: ${error.message}`, 'error');
@@ -865,7 +955,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function excluirProduto(id) {
-        if (vendasGeral.some(v => v.produto_id === id)) {
+        if (itensGeral.some(i => i.produto_id === id)) {
             showToast('Produto com vendas registradas não pode ser excluído!', 'error');
             return;
         }
@@ -880,43 +970,64 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- FUNÇÕES DE RENDERIZAÇÃO E ATUALIZAÇÃO ---
-    function aplicarFiltros() {
-        const periodoFiltroBtn = document.querySelector('#filtro-periodo .active');
-        const dataInicioInput = document.getElementById('data-inicio');
-        const dataFimInput = document.getElementById('data-fim');
+    function aplicarFiltros(filtroId = 'filtro-periodo', isCaixa = false) {
+        const periodoFiltroBtn = document.querySelector(`#${filtroId} .active`);
+        const dataInicioInput = document.getElementById(filtroId === 'filtro-periodo' ? 'data-inicio' : 'data-inicio-caixa');
+        const dataFimInput = document.getElementById(filtroId === 'filtro-periodo' ? 'data-fim' : 'data-fim-caixa');
         const hoje = new Date();
 
-        vendasFiltradas = vendasGeral.filter(v => {
-            if (!v || !v.data) return false;
-            if (dataInicioInput.value && dataFimInput.value) {
-                const dataInicio = new Date(`${dataInicioInput.value}T00:00:00`);
-                const dataFim = new Date(`${dataFimInput.value}T23:59:59`);
-                return v.data >= dataInicio && v.data <= dataFim;
-            } else if (periodoFiltroBtn) {
-                switch (periodoFiltroBtn.dataset.periodo) {
-                    case 'Diario': return dateFns.isSameDay(v.data, hoje);
-                    case 'Semanal': return dateFns.isThisWeek(v.data, { weekStartsOn: 1 });
-                    case 'Mensal': return dateFns.isSameMonth(v.data, hoje);
-                    case 'Anual': return dateFns.isSameYear(v.data, hoje);
-                    default: return true;
+        if (!isCaixa) {
+            pedidosFiltrados = pedidosGeral.filter(p => {
+                if (dataInicioInput.value && dataFimInput.value) {
+                    const dataInicio = new Date(`${dataInicioInput.value}T00:00:00`);
+                    const dataFim = new Date(`${dataFimInput.value}T23:59:59`);
+                    return p.data >= dataInicio && p.data <= dataFim;
+                } else if (periodoFiltroBtn) {
+                    switch (periodoFiltroBtn.dataset.periodo) {
+                        case 'Diario': return dateFns.isSameDay(p.data, hoje);
+                        case 'Semanal': return dateFns.isThisWeek(p.data, { weekStartsOn: 1 });
+                        case 'Mensal': return dateFns.isSameMonth(p.data, hoje);
+                        case 'Anual': return dateFns.isSameYear(p.data, hoje);
+                        default: return true;
+                    }
                 }
-            }
-            return true;
-        });
-        atualizarDashboard(vendasFiltradas);
+                return true;
+            });
+            itensFiltrados = itensGeral.filter(i => pedidosFiltrados.some(p => p.id === i.pedido_id));
+            atualizarDashboard(pedidosFiltrados, itensFiltrados);
+        } else {
+            caixasFiltrados = caixasGeral.filter(c => {
+                if (dataInicioInput.value && dataFimInput.value) {
+                    const dataInicio = new Date(`${dataInicioInput.value}T00:00:00`);
+                    const dataFim = new Date(`${dataFimInput.value}T23:59:59`);
+                    return c.data_abertura >= dataInicio && c.data_abertura <= dataFim;
+                } else if (periodoFiltroBtn) {
+                    switch (periodoFiltroBtn.dataset.periodo) {
+                        case 'Diario': return dateFns.isSameDay(c.data_abertura, hoje);
+                        case 'Semanal': return dateFns.isThisWeek(c.data_abertura, { weekStartsOn: 1 });
+                        case 'Mensal': return dateFns.isSameMonth(c.data_abertura, hoje);
+                        case 'Anual': return dateFns.isSameYear(c.data_abertura, hoje);
+                        default: return true;
+                    }
+                }
+                return true;
+            });
+            renderizarCaixaHist(caixasFiltrados);
+        }
     }
 
-    function atualizarDashboard(vendas) {
+    function atualizarDashboard(pedidos, itens) {
         document.getElementById('titulo-grafico').textContent = `Evolução de Vendas ${obterDescricaoFiltro()}`;
-        atualizarCards(vendas);
-        criarGraficoLinhas(vendas);
-        criarGraficoCategorias(vendas);
+        atualizarCards(pedidos);
+        criarGraficoLinhas(pedidos);
+        criarGraficoCategorias(itens);
     }
 
-    function atualizarCards(vendas) {
-        const totalVendas = vendas.reduce((acc, v) => acc + (v.valor_total || 0), 0);
+    function atualizarCards(pedidos) {
+        const totalVendas = pedidos.reduce((acc, p) => acc + (p.valor_total || 0), 0);
+        const totalInicialCaixas = caixasGeral.reduce((acc, c) => acc + (c.valor_inicial || 0), 0); // Agregando valor inicial de caixas ao total
         document.getElementById('total-vendas').textContent = formatarMoeda(totalVendas);
-        document.getElementById('saldo-total').textContent = formatarMoeda(totalVendas); // Saldo baseado em vendas
+        document.getElementById('saldo-total').textContent = formatarMoeda(totalVendas + totalInicialCaixas); // Saldo inclui vendas + iniciais
     }
     
     function renderizarEstoque() {
@@ -936,12 +1047,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function criarGraficoLinhas(vendas) {
+    function criarGraficoLinhas(pedidos) {
         const container = document.getElementById('grafico-linhas-container');
         const emptyState = document.getElementById('grafico-linhas-vazio');
         if (graficoLinhas) graficoLinhas.destroy();
         
-        if (vendas.length === 0) {
+        if (pedidos.length === 0) {
             container.style.display = 'none';
             emptyState.style.display = 'flex';
             return;
@@ -957,8 +1068,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 case 'Diario': unit = 'hour'; break; case 'Semanal': case 'Mensal': unit = 'day'; break; case 'Anual': unit = 'month'; break;
             }
         }
-        const dadosAgrupados = vendas.reduce((acc, v) => {
-            const d = v.data;
+        const dadosAgrupados = pedidos.reduce((acc, p) => {
+            const d = p.data;
             if (!d || isNaN(d.getTime())) return acc;
             let chaveObj;
             if (unit === 'hour') chaveObj = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours());
@@ -966,19 +1077,19 @@ document.addEventListener('DOMContentLoaded', function() {
             else chaveObj = new Date(d.getFullYear(), d.getMonth(), 1);
             const chave = chaveObj.toISOString();
             if (!acc[chave]) acc[chave] = 0;
-            acc[chave] += v.valor_total || 0;
+            acc[chave] += p.valor_total || 0;
             return acc;
         }, {});
         const labels = Object.keys(dadosAgrupados).sort((a, b) => new Date(a) - new Date(b));
         graficoLinhas = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ label: 'Vendas', data: labels.map(key => dadosAgrupados[key]), borderColor: 'var(--cor-verde)', backgroundColor: 'rgba(16, 185, 129, 0.2)', fill: true, tension: 0.3 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit, tooltipFormat: 'dd/MM/yyyy' } }, y: { beginAtZero: true, ticks: { callback: value => formatarMoeda(value) } } } } });
     }
 
-    function criarGraficoCategorias(vendas) {
+    function criarGraficoCategorias(itens) {
         const container = document.getElementById('grafico-categorias-container');
         const emptyState = document.getElementById('grafico-categorias-vazio');
         if (graficoCategorias) graficoCategorias.destroy();
 
-        if (vendas.length === 0) {
+        if (itens.length === 0) {
             container.style.display = 'none';
             emptyState.style.display = 'flex';
             return;
@@ -987,39 +1098,65 @@ document.addEventListener('DOMContentLoaded', function() {
         emptyState.style.display = 'none';
 
         const ctx = document.getElementById('grafico-categorias').getContext('2d');
-        const dadosAgrupados = vendas.reduce((acc, v) => {
-            const produto = v.produto_nome || 'Não especificado';
+        const dadosAgrupados = itens.reduce((acc, i) => {
+            const produto = i.produto_nome || 'Não especificado';
             if (!acc[produto]) acc[produto] = 0;
-            acc[produto] += v.quantidade || 0;
+            acc[produto] += i.quantidade || 0;
             return acc;
         }, {});
         const top10 = Object.entries(dadosAgrupados).sort(([, a], [, b]) => b - a).slice(0, 10);
         graficoCategorias = new Chart(ctx, { type: 'bar', data: { labels: top10.map(([produto]) => produto), datasets: [{ label: `Quantidade Vendida`, data: top10.map(([, qtd]) => qtd), backgroundColor: 'rgba(16, 185, 129, 0.7)' }] }, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } });
     }
 
+    function renderizarCaixaHist(caixas) {
+        const corpoTabelaCaixa = document.getElementById('corpo-tabela-caixa');
+        corpoTabelaCaixa.innerHTML = '';
+        let totalInicial = 0;
+        let totalFinal = 0;
+        caixas.forEach(c => {
+            const valorFinal = c.valor_final || (c.valor_inicial + calcTotalVendasForCaixa(c));
+            totalInicial += c.valor_inicial;
+            totalFinal += valorFinal;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td data-label="Data Abertura">${formatarData(c.data_abertura)}</td>
+                <td data-label="Data Encerramento">${c.data_encerramento ? formatarData(c.data_encerramento) : 'Aberto'}</td>
+                <td data-label="Valor Inicial">${formatarMoeda(c.valor_inicial)}</td>
+                <td data-label="Valor Final">${formatarMoeda(valorFinal)}</td>
+                <td class="acoes">
+                    <button class="btn-icon btn-export-caixa" data-id="${c.id}" title="Exportar PDF"><i class="fa-solid fa-file-pdf"></i></button>
+                </td>`;
+            corpoTabelaCaixa.appendChild(tr);
+        });
+        document.getElementById('total-inicial-caixa').textContent = formatarMoeda(totalInicial);
+        document.getElementById('total-final-caixa').textContent = formatarMoeda(totalFinal);
+    }
+
     // --- FUNÇÕES DE MODAL ---
     function exibirDetalhesModal(tipo) {
         const modal = document.getElementById('modal-detalhes');
-        const vendasParaExibir = tipo === 'Saldo' ? vendasFiltradas : vendasFiltradas; // Saldo é baseado em vendas
-        vendasParaExibir.sort((a, b) => b.data - a.data);
+        const pedidosParaExibir = tipo === 'Saldo' ? pedidosFiltrados : pedidosFiltrados;
+        pedidosParaExibir.sort((a, b) => b.data - a.data);
         
-        let titulo = tipo === 'Saldo' ? 'Detalhes do Saldo' : 'Detalhes de Vendas';
+        let titulo = tipo === 'Saldo' ? 'Detalhes do Saldo' : 'Detalhes de Pedidos';
         document.getElementById('modal-detalhes-titulo').textContent = `${titulo} ${obterDescricaoFiltro()}`;
 
-        let html = '<div class="empty-state" style="display:flex;"><p>Nenhuma venda encontrada.</p></div>';
-        if (vendasParaExibir.length > 0) {
-            const tableRows = vendasParaExibir.map(v => `
+        let html = '<div class="empty-state" style="display:flex;"><p>Nenhum pedido encontrado.</p></div>';
+        if (pedidosParaExibir.length > 0) {
+            const tableRows = pedidosParaExibir.map(p => {
+                const itensDoPedido = itensGeral.filter(i => i.pedido_id === p.id).map(i => `${i.produto_nome} x ${i.quantidade}`).join(', ');
+                return `
                 <tr>
-                    <td data-label="Data">${formatarData(v.data)}</td>
-                    <td data-label="Produto">${v.produto_nome}</td>
-                    <td data-label="Quantidade">${v.quantidade}</td>
-                    <td data-label="Pagamento">${v.forma_pagamento}</td>
-                    <td data-label="Valor" style="text-align:right;">${formatarMoeda(v.valor_total)}</td>
+                    <td data-label="Data">${formatarData(p.data)}</td>
+                    <td data-label="Itens">${itensDoPedido}</td>
+                    <td data-label="Pagamento">${p.forma_pagamento}</td>
+                    <td data-label="Valor" style="text-align:right;">${formatarMoeda(p.valor_total)}</td>
                     <td class="acoes">
-                        <button class="btn-icon btn-delete-venda" data-id="${v.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn-icon btn-delete-venda" data-id="${p.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>
                     </td>
-                </tr>`).join('');
-            html = `<div class="tabela-wrapper"><table class="tabela"><thead><tr><th>Data</th><th>Produto</th><th>Quantidade</th><th>Pagamento</th><th style="text-align:right;">Valor</th><th>Ações</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
+                </tr>`;
+            }).join('');
+            html = `<div class="tabela-wrapper"><table class="tabela"><thead><tr><th>Data</th><th>Itens</th><th>Pagamento</th><th style="text-align:right;">Valor</th><th>Ações</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
         }
         document.getElementById('modal-detalhes-conteudo').innerHTML = html;
         modal.style.display = 'flex';
@@ -1048,15 +1185,80 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         const modal = document.getElementById('modal-registro-venda');
-        const selectProduto = document.getElementById('venda-produto');
-        selectProduto.innerHTML = '';
+        const itensList = document.getElementById('itens-list');
+        itensList.innerHTML = '';
+        document.getElementById('venda-total').textContent = formatarMoeda(0);
+        document.getElementById('form-venda').reset();
+        addItemRow(); // Adiciona uma linha inicial
+        modal.style.display = 'flex';
+    }
+
+    function addItemRow(extratoItem = null) {
+        const itensList = document.getElementById('itens-list');
+        const row = document.createElement('div');
+        row.className = 'item-row';
+        const selectProduto = document.createElement('select');
+        selectProduto.className = 'venda-item-produto';
         produtos.forEach(prod => {
             const option = document.createElement('option');
             option.value = prod.id;
-            option.textContent = `${prod.nome} (Estoque: ${prod.estoque})`;
+            option.textContent = `${prod.nome} (R$ ${formatarMoeda(prod.preco)}) (Estoque: ${prod.estoque})`;
             selectProduto.appendChild(option);
         });
-        modal.style.display = 'flex';
+        const inputQtd = document.createElement('input');
+        inputQtd.type = 'number';
+        inputQtd.className = 'venda-item-qtd';
+        inputQtd.min = '1';
+        inputQtd.value = '1';
+        const subtotalSpan = document.createElement('span');
+        subtotalSpan.className = 'item-subtotal';
+        subtotalSpan.textContent = formatarMoeda(0);
+        const btnRemove = document.createElement('button');
+        btnRemove.className = 'btn-icon btn-remove-item';
+        btnRemove.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        btnRemove.addEventListener('click', () => {
+            row.remove();
+            updateVendaTotal();
+        });
+        row.appendChild(selectProduto);
+        row.appendChild(inputQtd);
+        row.appendChild(subtotalSpan);
+        row.appendChild(btnRemove);
+        itensList.appendChild(row);
+
+        const updateSubtotal = () => {
+            const prodId = parseInt(selectProduto.value);
+            const qtd = parseInt(inputQtd.value) || 0;
+            const prod = produtos.find(p => p.id === prodId);
+            const subtotal = prod ? prod.preco * qtd : 0;
+            subtotalSpan.textContent = formatarMoeda(subtotal);
+            updateVendaTotal();
+        };
+        selectProduto.addEventListener('change', updateSubtotal);
+        inputQtd.addEventListener('input', updateSubtotal);
+        updateSubtotal();
+
+        if (extratoItem) {
+            const prod = produtos.find(p => p.nome.toLowerCase().includes(extratoItem.produto.toLowerCase()));
+            if (prod) selectProduto.value = prod.id;
+            inputQtd.value = extratoItem.quantidade;
+            updateSubtotal();
+        }
+    }
+
+    function updateVendaTotal() {
+        const rows = document.querySelectorAll('.item-row');
+        let total = 0;
+        rows.forEach(row => {
+            const subtotal = parseFloat(row.querySelector('.item-subtotal').textContent.replace('R$', '').replace('.', '').replace(',', '.')) || 0;
+            total += subtotal;
+        });
+        document.getElementById('venda-total').textContent = formatarMoeda(total);
+    }
+
+    function abrirModalCaixaHist() {
+        aplicarFiltros('filtro-periodo-caixa', true);
+        document.getElementById('modal-caixa-hist').style.display = 'flex';
     }
 
     // --- INICIALIZAÇÃO E EVENT LISTENERS ---
@@ -1090,6 +1292,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    document.getElementById('filtro-periodo-caixa').addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') {
+            document.querySelectorAll('#filtro-periodo-caixa .btn-filtro').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            document.getElementById('data-inicio-caixa').value = '';
+            document.getElementById('data-fim-caixa').value = '';
+            aplicarFiltros('filtro-periodo-caixa', true);
+        }
+    });
+    
+    document.getElementById('btn-aplicar-filtro-data-caixa').addEventListener('click', () => {
+        if (document.getElementById('data-inicio-caixa').value && document.getElementById('data-fim-caixa').value) {
+            document.querySelectorAll('#filtro-periodo-caixa .btn-filtro').forEach(btn => btn.classList.remove('active'));
+            aplicarFiltros('filtro-periodo-caixa', true);
+        } else {
+            showToast('Selecione datas.', 'error');
+        }
+    });
+
     document.getElementById('form-produto').addEventListener('submit', (e) => {
         e.preventDefault();
         const id = document.getElementById('prod-id').value;
@@ -1108,36 +1329,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('form-venda').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const produtoId = parseInt(document.getElementById('venda-produto').value);
-        const quantidade = parseInt(document.getElementById('venda-quantidade').value);
-        const produto = produtos.find(p => p.id === produtoId);
-        const valorTotal = produto.preco * quantidade;
         const formaPagamento = document.getElementById('venda-pagamento').value;
-        const file = document.getElementById('venda-documento').files[0];
-        let extrato = null;
+        const rows = document.querySelectorAll('.item-row');
+        const itens = [];
+        rows.forEach(row => {
+            const produtoId = parseInt(row.querySelector('.venda-item-produto').value);
+            const quantidade = parseInt(row.querySelector('.venda-item-qtd').value) || 0;
+            if (quantidade > 0) {
+                const prod = produtos.find(p => p.id === produtoId);
+                itens.push({ produto_id: produtoId, quantidade, preco: prod.preco });
+            }
+        });
+        submeterPedido(formaPagamento, itens);
+    });
+
+    document.getElementById('btn-add-item').addEventListener('click', () => addItemRow());
+
+    document.getElementById('venda-documento').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
         if (file) {
             try {
-                extrato = await lerDocumentoVenda(file);
-                // Sobrescrever dados se extraídos
-                if (extrato.produto) {
-                    const prodExtraido = produtos.find(p => p.nome.toLowerCase().includes(extrato.produto.toLowerCase()));
-                    if (prodExtraido) produtoId = prodExtraido.id;
-                }
-                if (extrato.quantidade) quantidade = extrato.quantidade;
-                if (extrato.valor_total) valorTotal = extrato.valor_total;
-                if (extrato.forma_pagamento) formaPagamento = extrato.forma_pagamento;
+                const extrato = await lerDocumentoVenda(file);
+                document.getElementById('venda-pagamento').value = extrato.forma_pagamento || '';
+                document.getElementById('itens-list').innerHTML = '';
+                extrato.itens.forEach(item => addItemRow(item));
+                updateVendaTotal();
             } catch (error) {
                 showToast('Erro ao ler documento.', 'error');
             }
         }
-        const dados = {
-            data: new Date().toISOString().split('T')[0], // Data atual automática
-            produto_id: produtoId,
-            quantidade: quantidade,
-            valor_total: valorTotal,
-            forma_pagamento: formaPagamento
-        };
-        submeterVenda(dados);
     });
 
     document.getElementById('form-abrir-caixa').addEventListener('submit', (e) => {
@@ -1159,7 +1379,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const btnDeleteVenda = e.target.closest('.btn-delete-venda');
         if (btnDeleteVenda) {
             const id = parseInt(btnDeleteVenda.dataset.id);
-            if (confirm('Excluir venda?')) excluirVenda(id);
+            if (confirm('Excluir pedido?')) excluirPedido(id);
         }
         const btnEditProd = e.target.closest('.btn-edit-prod');
         if (btnEditProd) {
@@ -1171,6 +1391,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const id = parseInt(btnDeleteProd.dataset.id);
             if (confirm('Excluir produto?')) excluirProduto(id);
         }
+        const btnExportCaixa = e.target.closest('.btn-export-caixa');
+        if (btnExportCaixa) {
+            const id = parseInt(btnExportCaixa.dataset.id);
+            const caixa = caixasGeral.find(c => c.id === id);
+            exportarConferenciaCaixaPDF(caixa);
+        }
     });
 
     // Eventos de clique nos cards e modais
@@ -1180,7 +1406,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-adicionar-produto').addEventListener('click', () => abrirModalProduto());
     document.getElementById('btn-abrir-modal-venda').addEventListener('click', abrirModalVenda);
     document.getElementById('btn-abrir-caixa').addEventListener('click', () => document.getElementById('modal-abrir-caixa').style.display = 'flex');
+    document.getElementById('btn-hist-caixa').addEventListener('click', abrirModalCaixaHist);
     document.getElementById('btn-analise-financeira').addEventListener('click', gerarAnaliseFinanceira);
+    document.getElementById('btn-analise-caixa').addEventListener('click', gerarAnaliseCaixa);
     
     // Fechar modais
     document.querySelectorAll('.modal-container').forEach(modal => {
@@ -1193,11 +1421,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-cancelar-venda').addEventListener('click', () => document.getElementById('modal-registro-venda').style.display = 'none');
     document.getElementById('btn-fechar-abrir-caixa').addEventListener('click', () => document.getElementById('modal-abrir-caixa').style.display = 'none');
     document.getElementById('btn-cancelar-abrir-caixa').addEventListener('click', () => document.getElementById('modal-abrir-caixa').style.display = 'none');
+    document.getElementById('btn-fechar-caixa-hist').addEventListener('click', () => document.getElementById('modal-caixa-hist').style.display = 'none');
     
     // Eventos de Exportação
     document.getElementById('btn-export-pdf-vendas').addEventListener('click', exportarParaPDF);
     document.getElementById('btn-export-csv-vendas').addEventListener('click', exportarParaCSV);
-    document.getElementById('btn-export-pdf-caixa').addEventListener('click', exportarConferenciaCaixaPDF);
+    document.getElementById('btn-export-pdf-caixa').addEventListener('click', () => exportarConferenciaCaixaPDF());
     document.getElementById('btn-refresh').addEventListener('click', carregarDadosIniciais);
 
     // Inicialização
