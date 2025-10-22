@@ -689,7 +689,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- ANÁLISE FINANCEIRA (IA GEMINI) ---
+    // --- ANÁLISE FINANCEIRA (IA GEMINI) - MUDANÇA APLICADA ---
     document.getElementById('btn-analise-financeira').addEventListener('click', async () => {
         const btn = document.getElementById('btn-analise-financeira');
         const conteudo = document.getElementById('analise-conteudo');
@@ -704,15 +704,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const totalVendas = pedidosGeral.reduce((acc, p) => acc + (p.valor_total || 0), 0);
             const totalPedidos = pedidosGeral.length;
             const mediaPedido = totalPedidos > 0 ? totalVendas / totalPedidos : 0;
-            const produtosMaisVendidos = itensGeral
-                .reduce((acc, i) => {
+
+            // 1. Agrupe os produtos em um OBJETO
+            const produtosAgrupados = itensGeral.reduce((acc, i) => {
                     acc[i.produto_id] = (acc[i.produto_id] || 0) + i.quantidade;
                     return acc;
-                }, {})
-                .sort((a, b) => b[1] - a[1])
+            }, {});
+
+            // 2. Agora transforme o OBJETO em um ARRAY e ORDENE
+            const produtosMaisVendidos = Object.entries(produtosAgrupados) // <-- Converte { '1': 15 } para [ ['1', 15] ]
+                .sort((a, b) => b[1] - a[1]) // <-- Agora o .sort() funciona!
                 .slice(0, 5)
                 .map(([id, qtd]) => {
-                    const prod = produtos.find(p => p.id === id);
+                    // O 'id' que vem de Object.entries é uma string,
+                    // o p.id do Supabase é um número. Usar '==' resolve a comparação.
+                    const prod = produtos.find(p => p.id == id);
                     return `${prod?.nome || 'Desconhecido'}: ${qtd}un`;
                 });
             
@@ -725,7 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
             • Ticket Médio: R$ ${mediaPedido.toFixed(2)}
 
             PRODUTOS MAIS VENDIDOS:
-            ${produtosMaisVendidos.join('\n')}
+            ${produtosMaisVendidos.map(p => `• ${p}`).join('\n')}
 
             FORMAÇÃO DE PREÇOS:
             ${produtos.map(p => `• ${p.nome}: R$ ${p.preco.toFixed(2)} (Estoque: ${p.estoque})`).join('\n')}
