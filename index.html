@@ -11,11 +11,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
-    <script src="https://cdn.jsdelivr.net/npm/date-fns-tz@3.1.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns@3.6.0/dist/date-fns.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns-tz@2.0.0/dist/date-fns-tz.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         /* --- ESTILOS GERAIS E VARIÁVEIS --- */
@@ -652,10 +652,17 @@
 document.addEventListener('DOMContentLoaded', function() {
     'use strict';
 
+    // Initialize libraries with global variables
+    const dateFns = window.dateFns;
+    const dateFnsTz = window.dateFnsTz;
+    const { jsPDF } = window.jspdf;
+    const { createClient } = window.Supabase; // For Supabase UMD build
+    const { utcToZonedTime, zonedTimeToUtc, format: formatTz } = dateFnsTz;
+
     // --- CONFIGURAÇÃO SUPABASE ---
     const SUPABASE_URL = 'https://jrbhvzczkzuyigwiomaa.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyYmh2emN6a3p1eWlnd2lvbWFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NzQzNDUsImV4cCI6MjA3NjU1MDM0NX0.bs4GzZa2iPCkuvOUy4OpKmuT2n6NLPr857Qe1hytJSc';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // --- GEMINI API CORRIGIDA (FUNCIONANDO 100%) ---
     const GEMINI_API_KEY = 'AIzaSyCxlKJYWyPiQ7y36duJNtLPCx2jYQLpwiU';
@@ -779,7 +786,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- FUNÇÕES AUXILIARES ---
     const formatarMoeda = (valor) => (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const tz = 'America/Sao_Paulo';
-    const { utcToZonedTime, zonedTimeToUtc, format: formatTz } = dateFnsTz;
     const formatarData = (data) => {
         if (!(data instanceof Date) || isNaN(data)) return 'Data inválida';
         const zonedDate = utcToZonedTime(data, tz);
@@ -822,7 +828,6 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Nenhum pedido para exportar.', 'error');
             return;
         }
-        const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.text(`Relatório de Pedidos ${obterDescricaoFiltro()}`, 14, 15);
         const tableData = dadosParaExportar.map(p => [formatarData(p.data), p.forma_pagamento, formatarMoeda(p.valor_total)]);
@@ -866,7 +871,6 @@ document.addEventListener('DOMContentLoaded', function() {
             acc[p.forma_pagamento] = (acc[p.forma_pagamento] || 0) + p.valor_total;
             return acc;
         }, { 'Dinheiro': 0, 'Pix': 0, 'Cartao': 0, 'Outro': 0 });
-        const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.setFontSize(18);
         doc.text('Conferência de Caixa', 105, 20, { align: 'center' });
