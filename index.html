@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/date-fns-tz@3.1.0"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -777,7 +778,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- FUNÇÕES AUXILIARES ---
     const formatarMoeda = (valor) => (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const formatarData = (data) => data instanceof Date && !isNaN(data) ? data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Data inválida';
+    const tz = 'America/Sao_Paulo';
+    const { utcToZonedTime, zonedTimeToUtc, format: formatTz } = dateFnsTz;
+    const formatarData = (data) => {
+        if (!(data instanceof Date) || isNaN(data)) return 'Data inválida';
+        const zonedDate = utcToZonedTime(data, tz);
+        return formatTz(zonedDate, 'dd/MM/yyyy, HH:mm', { timeZone: tz });
+    };
     
     function formatarInputMoeda(inputEl) {
         let valor = inputEl.value.replace(/\D/g, '');
@@ -849,7 +856,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return vendasDoPeriodo.reduce((acc, p) => acc + p.valor_total, 0);
     }
 
-    function exportarConferenciaCaixaPDF(caixa = caixaAtual) {
+    async function exportarConferenciaCaixaPDF(caixa = caixaAtual) {
         if (!caixa) {
             showToast('Caixa não selecionado.', 'error');
             return;
@@ -858,7 +865,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const totalPorPagamento = pedidosGeral.filter(p => dateFns.isAfter(p.data, caixa.data_abertura) && (!caixa.data_encerramento || dateFns.isBefore(p.data, caixa.data_encerramento))).reduce((acc, p) => {
             acc[p.forma_pagamento] = (acc[p.forma_pagamento] || 0) + p.valor_total;
             return acc;
-        }, {});
+        }, { 'Dinheiro': 0, 'Pix': 0, 'Cartao': 0, 'Outro': 0 });
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.setFontSize(18);
@@ -868,10 +875,11 @@ document.addEventListener('DOMContentLoaded', function() {
         doc.text(`Data/Hora Encerramento: ${caixa.data_encerramento ? formatarData(caixa.data_encerramento) : 'Aberto'}`, 14, 45);
         doc.text(`Valor Inicial: ${formatarMoeda(caixa.valor_inicial)}`, 14, 55);
         doc.text(`Total Vendas: ${formatarMoeda(totalVendas)}`, 14, 65);
+        doc.text('Resumo por Forma de Pagamento:', 14, 75);
         doc.autoTable({
             head: [['Forma de Pagamento', 'Valor']],
             body: Object.entries(totalPorPagamento).map(([pag, valor]) => [pag, formatarMoeda(valor)]),
-            startY: 75,
+            startY: 80,
             theme: 'grid',
             styles: { fontSize: 10, cellPadding: 5 },
             headStyles: { fillColor: [59, 130, 246] }
@@ -1026,19 +1034,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const dataInicioInput = document.getElementById(filtroId === 'filtro-periodo' ? 'data-inicio' : 'data-inicio-caixa');
         const dataFimInput = document.getElementById(filtroId === 'filtro-periodo' ? 'data-fim' : 'data-fim-caixa');
         const hoje = new Date();
+        const tz = 'America/Sao_Paulo';
 
         if (!isCaixa) {
             pedidosFiltrados = pedidosGeral.filter(p => {
                 if (dataInicioInput.value && dataFimInput.value) {
-                    const dataInicio = new Date(`${dataInicioInput.value}T00:00:00`);
-                    const dataFim = new Date(`${dataFimInput.value}T23:59:59`);
-                    return p.data >= dataInicio && p.data <= dataFim;
+                    const dataInicioLocal = `${dataInicioInput.value}T00:00:00`;
+                    const dataFimLocal = `${dataFimInput.value}T23:59:59`;
+                    const dataInicioUtc = zonedTimeToUtc(dataInicioLocal, tz);
+                    const dataFimUtc = zonedTimeToUtc(dataFimLocal, tz);
+                    return p.data >= dataInicioUtc && p.data <= dataFimUtc;
                 } else if (periodoFiltroBtn) {
+                    const zonedP = utcToZonedTime(p.data, tz);
+                    const zonedHoje = utcToZonedTime(hoje, tz);
                     switch (periodoFiltroBtn.dataset.periodo) {
-                        case 'Diario': return dateFns.isSameDay(p.data, hoje);
-                        case 'Semanal': return dateFns.isThisWeek(p.data, { weekStartsOn: 1 });
-                        case 'Mensal': return dateFns.isSameMonth(p.data, hoje);
-                        case 'Anual': return dateFns.isSameYear(p.data, hoje);
+                        case 'Diario': return dateFns.isSameDay(zonedP, zonedHoje);
+                        case 'Semanal': return dateFns.isThisWeek(zonedP, { weekStartsOn: 1 });
+                        case 'Mensal': return dateFns.isSameMonth(zonedP, zonedHoje);
+                        case 'Anual': return dateFns.isSameYear(zonedP, zonedHoje);
                         default: return true;
                     }
                 }
@@ -1049,15 +1062,19 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             caixasFiltrados = caixasGeral.filter(c => {
                 if (dataInicioInput.value && dataFimInput.value) {
-                    const dataInicio = new Date(`${dataInicioInput.value}T00:00:00`);
-                    const dataFim = new Date(`${dataFimInput.value}T23:59:59`);
-                    return c.data_abertura >= dataInicio && c.data_abertura <= dataFim;
+                    const dataInicioLocal = `${dataInicioInput.value}T00:00:00`;
+                    const dataFimLocal = `${dataFimInput.value}T23:59:59`;
+                    const dataInicioUtc = zonedTimeToUtc(dataInicioLocal, tz);
+                    const dataFimUtc = zonedTimeToUtc(dataFimLocal, tz);
+                    return c.data_abertura >= dataInicioUtc && c.data_abertura <= dataFimUtc;
                 } else if (periodoFiltroBtn) {
+                    const zonedC = utcToZonedTime(c.data_abertura, tz);
+                    const zonedHoje = utcToZonedTime(hoje, tz);
                     switch (periodoFiltroBtn.dataset.periodo) {
-                        case 'Diario': return dateFns.isSameDay(c.data_abertura, hoje);
-                        case 'Semanal': return dateFns.isThisWeek(c.data_abertura, { weekStartsOn: 1 });
-                        case 'Mensal': return dateFns.isSameMonth(c.data_abertura, hoje);
-                        case 'Anual': return dateFns.isSameYear(c.data_abertura, hoje);
+                        case 'Diario': return dateFns.isSameDay(zonedC, zonedHoje);
+                        case 'Semanal': return dateFns.isThisWeek(zonedC, { weekStartsOn: 1 });
+                        case 'Mensal': return dateFns.isSameMonth(zonedC, zonedHoje);
+                        case 'Anual': return dateFns.isSameYear(zonedC, zonedHoje);
                         default: return true;
                     }
                 }
@@ -1119,8 +1136,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 case 'Diario': unit = 'hour'; break; case 'Semanal': case 'Mensal': unit = 'day'; break; case 'Anual': unit = 'month'; break;
             }
         }
+        const tz = 'America/Sao_Paulo';
         const dadosAgrupados = pedidos.reduce((acc, p) => {
-            const d = p.data;
+            const d = utcToZonedTime(p.data, tz);
             if (!d || isNaN(d.getTime())) return acc;
             let chaveObj;
             if (unit === 'hour') chaveObj = new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours());
