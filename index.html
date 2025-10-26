@@ -636,7 +636,7 @@
                 </section>
                 <div class="tabela-wrapper">
                     <table class="tabela">
-                        <thead><tr><th>Data Abertura</th><th>Data Encerramento</th><th>Valor Inicial</th><th>Valor Final</th><th>Ações</th></tr></thead>
+                        <thead><tr><th>Data/Hora Abertura</th><th>Data/Hora Encerramento</th><th>Valor Inicial</th><th>Valor Final</th><th>Ações</th></tr></thead>
                         <tbody id="corpo-tabela-caixa"></tbody>
                     </table>
                 </div>
@@ -776,7 +776,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- FUNÇÕES AUXILIARES ---
     const formatarMoeda = (valor) => (valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const formatarData = (data) => data instanceof Date && !isNaN(data) ? data.toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data inválida';
+    const formatarData = (data) => data instanceof Date && !isNaN(data) ? data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'Data inválida';
     
     function formatarInputMoeda(inputEl) {
         let valor = inputEl.value.replace(/\D/g, '');
@@ -818,7 +818,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const doc = new jsPDF();
         doc.text(`Relatório de Pedidos ${obterDescricaoFiltro()}`, 14, 15);
         const tableData = dadosParaExportar.map(p => [formatarData(p.data), p.forma_pagamento, formatarMoeda(p.valor_total)]);
-        doc.autoTable({ head: [['Data', 'Pagamento', 'Valor']], body: tableData, startY: 25 });
+        doc.autoTable({ head: [['Data/Hora', 'Pagamento', 'Valor']], body: tableData, startY: 25 });
         doc.save(`relatorio-pedidos-${new Date().toISOString().split('T')[0]}.pdf`);
     }
 
@@ -828,7 +828,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('Nenhum pedido para exportar.', 'error');
             return;
         }
-        const headers = ['Data', 'Pagamento', 'Valor'];
+        const headers = ['Data/Hora', 'Pagamento', 'Valor'];
         let csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
         dadosParaExportar.forEach(p => {
             const valorNumerico = (p.valor_total || 0).toFixed(2).replace('.', ',');
@@ -861,8 +861,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         doc.text('Conferência de Caixa', 14, 15);
-        doc.text(`Data Abertura: ${formatarData(caixa.data_abertura)}`, 14, 25);
-        doc.text(`Data Encerramento: ${caixa.data_encerramento ? formatarData(caixa.data_encerramento) : 'Aberto'}`, 14, 35);
+        doc.text(`Data/Hora Abertura: ${formatarData(caixa.data_abertura)}`, 14, 25);
+        doc.text(`Data/Hora Encerramento: ${caixa.data_encerramento ? formatarData(caixa.data_encerramento) : 'Aberto'}`, 14, 35);
         doc.text(`Valor Inicial: ${formatarMoeda(caixa.valor_inicial)}`, 14, 45);
         doc.text(`Total Vendas: ${formatarMoeda(totalVendas)}`, 14, 55);
         let y = 65;
@@ -930,7 +930,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         try {
-            const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos').insert([{ data: new Date().toISOString().split('T')[0], forma_pagamento: formaPagamento, valor_total: valorTotal }]).select();
+            const { data: pedidoData, error: pedidoError } = await supabase.from('pedidos').insert([{ data: new Date().toISOString(), forma_pagamento: formaPagamento, valor_total: valorTotal }]).select();
             if (pedidoError) throw pedidoError;
             const pedidoId = pedidoData[0].id;
             const itensToInsert = itens.map(item => ({ pedido_id: pedidoId, produto_id: item.produto_id, quantidade: item.quantidade, preco_unitario: item.preco }));
@@ -1163,8 +1163,8 @@ document.addEventListener('DOMContentLoaded', function() {
             totalFinal += valorFinal;
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td data-label="Data Abertura">${formatarData(c.data_abertura)}</td>
-                <td data-label="Data Encerramento">${c.data_encerramento ? formatarData(c.data_encerramento) : 'Aberto'}</td>
+                <td data-label="Data/Hora Abertura">${formatarData(c.data_abertura)}</td>
+                <td data-label="Data/Hora Encerramento">${c.data_encerramento ? formatarData(c.data_encerramento) : 'Aberto'}</td>
                 <td data-label="Valor Inicial">${formatarMoeda(c.valor_inicial)}</td>
                 <td data-label="Valor Final">${formatarMoeda(valorFinal)}</td>
                 <td class="acoes">
@@ -1191,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const itensDoPedido = itensGeral.filter(i => i.pedido_id === p.id).map(i => `${i.produto_nome} x ${i.quantidade}`).join(', ');
                 return `
                 <tr>
-                    <td data-label="Data">${formatarData(p.data)}</td>
+                    <td data-label="Data/Hora">${formatarData(p.data)}</td>
                     <td data-label="Itens">${itensDoPedido}</td>
                     <td data-label="Pagamento">${p.forma_pagamento}</td>
                     <td data-label="Valor" style="text-align:right;">${formatarMoeda(p.valor_total)}</td>
@@ -1200,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </td>
                 </tr>`;
             }).join('');
-            html = `<div class="tabela-wrapper"><table class="tabela"><thead><tr><th>Data</th><th>Itens</th><th>Pagamento</th><th style="text-align:right;">Valor</th><th>Ações</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
+            html = `<div class="tabela-wrapper"><table class="tabela"><thead><tr><th>Data/Hora</th><th>Itens</th><th>Pagamento</th><th style="text-align:right;">Valor</th><th>Ações</th></tr></thead><tbody>${tableRows}</tbody></table></div>`;
         }
         document.getElementById('modal-detalhes-conteudo').innerHTML = html;
         modal.style.display = 'flex';
