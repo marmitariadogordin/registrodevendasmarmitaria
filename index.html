@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Marmitaria do Gordin</title>
+    <link rel="icon" href="https://doupan.vteximg.com.br/arquivos/Doupan_Logo.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -860,17 +861,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }, {});
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text('Conferência de Caixa', 14, 15);
-        doc.text(`Data/Hora Abertura: ${formatarData(caixa.data_abertura)}`, 14, 25);
-        doc.text(`Data/Hora Encerramento: ${caixa.data_encerramento ? formatarData(caixa.data_encerramento) : 'Aberto'}`, 14, 35);
-        doc.text(`Valor Inicial: ${formatarMoeda(caixa.valor_inicial)}`, 14, 45);
-        doc.text(`Total Vendas: ${formatarMoeda(totalVendas)}`, 14, 55);
-        let y = 65;
-        for (const [pag, valor] of Object.entries(totalPorPagamento)) {
-            doc.text(`${pag}: ${formatarMoeda(valor)}`, 14, y);
-            y += 10;
-        }
-        doc.text(`Valor Final: ${formatarMoeda(caixa.valor_final || (caixa.valor_inicial + totalVendas))}`, 14, y);
+        doc.setFontSize(18);
+        doc.text('Conferência de Caixa', 105, 20, { align: 'center' });
+        doc.setFontSize(12);
+        doc.text(`Data/Hora Abertura: ${formatarData(caixa.data_abertura)}`, 14, 35);
+        doc.text(`Data/Hora Encerramento: ${caixa.data_encerramento ? formatarData(caixa.data_encerramento) : 'Aberto'}`, 14, 45);
+        doc.text(`Valor Inicial: ${formatarMoeda(caixa.valor_inicial)}`, 14, 55);
+        doc.text(`Total Vendas: ${formatarMoeda(totalVendas)}`, 14, 65);
+        doc.autoTable({
+            head: [['Forma de Pagamento', 'Valor']],
+            body: Object.entries(totalPorPagamento).map(([pag, valor]) => [pag, formatarMoeda(valor)]),
+            startY: 75,
+            theme: 'grid',
+            styles: { fontSize: 10, cellPadding: 5 },
+            headStyles: { fillColor: [59, 130, 246] }
+        });
+        const finalY = doc.previousAutoTable.finalY + 10;
+        doc.text(`Valor Final: ${formatarMoeda(caixa.valor_final || (caixa.valor_inicial + totalVendas))}`, 14, finalY);
         doc.save(`conferencia-caixa-${caixa.id}-${new Date().toISOString().split('T')[0]}.pdf`);
     }
 
